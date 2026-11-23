@@ -371,7 +371,8 @@ elif page == "Past Searches & Shortlists":
                         selected = st.selectbox("Select a site to highlight on the map", [""] + site_list, key=f"sel_{sid}")
                         
                         display_cols = [c for c in ["No.", "Site", "Title No.", "Site ID", "Approx acres", "Traffic nearby", "Score", "Hardstanding confidence", "Flags", "Links"] if c in df.columns]
-                        st.dataframe(df[display_cols] if display_cols else df, use_container_width=True, hide_index=True, column_config={"Links": st.column_config.LinkColumn("Links")})
+                        df = df.loc[:, ~df.columns.duplicated()]
+                        st.dataframe(df[display_cols] if display_cols else df, use_container_width=True, hide_index=True)
                         
                         # Map view
                         st.subheader("Map view")
