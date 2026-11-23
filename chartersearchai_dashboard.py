@@ -215,17 +215,16 @@ Run a full scan for overlooked commercial development sites matching these exact
                     resp = requests.post(f"{api_url.rstrip('/')}/search", json=payload, headers=headers, timeout=180)
                     if resp.status_code == 200:
                         agent_result = resp.json()
-                        # Accept either "sites" or "results"
                         sites = agent_result.get("sites") or agent_result.get("results") or []
                         results[search_id] = {"criteria": criteria, "sites": sites, "generated": datetime.now().isoformat(), "source": "agent"}
                         save_json(RESULTS_FILE, results)
                         st.success(f"Real results received ({len(sites)} sites).")
                     else:
                         st.error(f"Agent error {resp.status_code}: {resp.text[:500]}")
-                        raise Exception("bad status")
+                        st.stop()  # Keep the error visible
                 except Exception as e:
                     st.error(f"Request failed: {type(e).__name__}: {str(e)}")
-                    demo_sites = [
+                    st.stop()  # Keep the error visible
                         {"Site": "Hardstanding yard near M25 J15", "Approx acres": 2.1, "Traffic nearby": "12,400 AADF", "Score": 92, "Notes": "Demo – agent unavailable", "Lat": 51.48, "Lon": -0.45, "Hardstanding confidence": "High"},
                         {"Site": "Brownfield parcel Essex industrial fringe", "Approx acres": 1.4, "Traffic nearby": "9,100 AADF", "Score": 85, "Notes": "Demo", "Lat": 51.55, "Lon": 0.35, "Hardstanding confidence": "Medium"}
                     ]
