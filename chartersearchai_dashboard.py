@@ -436,12 +436,21 @@ elif page == "Past Searches & Shortlists":
                                 key=f"excel_{sid}"
                             )
                         
-                        # Shortlist
+                        # Shortlist / ownership request
                         site_options = df["Site"].dropna().astype(str).tolist() if "Site" in df.columns else []
                         if site_options:
-                            shortlisted = st.multiselect("Mark for shortlist", site_options, key=f"short_{sid}")
-                            if st.button("Save shortlist", key=f"save_{sid}"):
-                                st.success(f"Shortlisted {len(shortlisted)} sites.")
+                            selected_for_ownership = st.multiselect(
+                                "Select sites to get ownership details",
+                                options=[f"{n}. {s}" for n, s in zip(df["No."], df["Site"].astype(str))],
+                                key=f"own_{sid}"
+                            )
+                            if st.button("🔍 Get ownership details for selected sites", key=f"ownbtn_{sid}"):
+                                if selected_for_ownership:
+                                    st.info(f"Requesting ownership details for {len(selected_for_ownership)} site(s)…")
+                                    # Placeholder – will call the agent once the endpoint supports it
+                                    st.success("Ownership request sent. Results will appear here when the agent responds.")
+                                else:
+                                    st.warning("Please select at least one site.")
                 else:
                     st.warning("Results pending...")
 
