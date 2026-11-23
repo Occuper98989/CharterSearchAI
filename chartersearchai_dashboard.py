@@ -347,14 +347,10 @@ elif page == "Past Searches & Shortlists":
                             return links.get("google_maps", "") if isinstance(links, dict) else ""
                         
                         def get_lr(row):
-                            lr = row.get("land_registry_link", "")
-                            if lr:
-                                return lr
-                            lat = row.get("Lat")
-                            lon = row.get("Lon")
-                            if pd.notna(lat) and pd.notna(lon):
-                                return f"Search: {lat:.5f}, {lon:.5f}"
-                            return "Search on Land Registry"
+                            return row.get("land_registry_link", "") or ""
+                        
+                        df["Google Maps"] = df.apply(get_maps, axis=1)
+                        df["Land Registry"] = df.apply(get_lr, axis=1)
                         
                         df["Google Maps"] = df.apply(get_maps, axis=1)
                         df["Land Registry"] = df.apply(get_lr, axis=1)
@@ -395,32 +391,24 @@ elif page == "Past Searches & Shortlists":
                         else:
                             st.info("No coordinates available for map.")
                         
-                        # Links for ALL sites
-                        st.subheader("Identify the site (all results)")
-                        for _, row in df.iterrows():
-                            num = row.get("No.", "")
-                            site_name = row.get("Site") or row.get("address") or "Site"
-                            site_id = row.get("Site ID") or row.get("site_id") or ""
-                            links = row.get("source_links", {})
-                            lr = row.get("land_registry_link", "")
-                            link_parts = []
-                            if isinstance(links, dict):
-                                if links.get("google_maps"):
-                                    link_parts.append(f"[Google Maps]({links['google_maps']})")
-                                if links.get("planning_data"):
-                                    link_parts.append(f"[Planning Data]({links['planning_data']})")
-                            if lr:
-                                link_parts.append(f"[Land Registry]({lr})")
-                            else:
-                                # Fallback: link to official Land Registry search + coordinates
-                                lat = row.get("Lat")
-                                lon = row.get("Lon")
-                                if pd.notna(lat) and pd.notna(lon):
-                                    link_parts.append(f"[Search ownership on Land Registry](https://www.gov.uk/search-property-information-land-registry) (coords: {lat:.5f}, {lon:.5f})")
-                                else:
-                                    link_parts.append("[Search ownership on Land Registry](https://www.gov.uk/search-property-information-land-registry)")
-                            links_str = " | ".join(link_parts) if link_parts else "No direct link"
-                            st.markdown(f"**{num}. {site_name}** {f'({site_id})' if site_id else ''} — {links_str}")
+                        # Links for ALL sites (collapsible)
+                        with st.expander("Identify the site (all results)", expanded=False):
+                            for _, row in df.iterrows():
+                                num = row.get("No.", "")
+                                site_name = row.get("Site") or row.get("address") or "Site"
+                                site_id = row.get("Site ID") or row.get("site_id") or ""
+                                links = row.get("source_links", {})
+                                lr = row.get("land_registry_link", "")
+                                link_parts = []
+                                if isinstance(links, dict):
+                                    if links.get("google_maps"):
+                                        link_parts.append(f"[Google Maps]({links['google_maps']})")
+                                    if links.get("planning_data"):
+                                        link_parts.append(f"[Planning Data]({links['planning_data']})")
+                                if lr:
+                                    link_parts.append(f"[Land Registry]({lr})")
+                                links_str = " | ".join(link_parts) if link_parts else "No links yet"
+                                st.markdown(f"**{num}. {site_name}** {f'({site_id})' if site_id else ''} — {links_str}")
                         
                         # Excel with links
                         st.subheader("Export")
