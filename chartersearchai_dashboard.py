@@ -196,21 +196,26 @@ Run a full scan for overlooked commercial development sites matching these exact
         api_key = st.secrets.get("AGENT_API_KEY", "")
         
         if api_url and api_key:
+            st.info(f"Calling agent at {api_url}/search …")
             with st.spinner("Running real search with the Land Sourcing Agent..."):
                 try:
-                    headers = {"Content-Type": "application/json", "X-API-Key": api_key}
+                    headers = {
+                        "Content-Type": "application/json",
+                        "X-API-Key": api_key,
+                        "ngrok-skip-browser-warning": "true"
+                    }
                     resp = requests.post(f"{api_url.rstrip('/')}/search", json=payload, headers=headers, timeout=180)
                     if resp.status_code == 200:
                         agent_result = resp.json()
                         sites = agent_result.get("sites", [])
                         results[search_id] = {"criteria": criteria, "sites": sites, "generated": datetime.now().isoformat(), "source": "agent"}
                         save_json(RESULTS_FILE, results)
-                        st.success("Real results received from the agent.")
+                        st.success(f"Real results received ({len(sites)} sites).")
                     else:
-                        st.error(f"Agent error {resp.status_code}: {resp.text[:300]}")
-                        raise Exception("fallback")
+                        st.error(f"Agent error {resp.status_code}: {resp.text[:500]}")
+                        raise Exception("bad status")
                 except Exception as e:
-                    st.error(f"Request failed: {e}")
+                    st.error(f"Request failed: {type(e).__name__}: {str(e)}")
                     demo_sites = [
                         {"Site": "Hardstanding yard near M25 J15", "Approx acres": 2.1, "Traffic nearby": "12,400 AADF", "Score": 92, "Notes": "Demo – agent unavailable", "Lat": 51.48, "Lon": -0.45, "Hardstanding confidence": "High"},
                         {"Site": "Brownfield parcel Essex industrial fringe", "Approx acres": 1.4, "Traffic nearby": "9,100 AADF", "Score": 85, "Notes": "Demo", "Lat": 51.55, "Lon": 0.35, "Hardstanding confidence": "Medium"}
