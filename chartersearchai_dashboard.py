@@ -342,7 +342,13 @@ elif page == "Past Searches & Shortlists":
                             flags.append(" | ".join(f) if f else "")
                         df["Flags"] = flags
                         
-                        display_cols = [c for c in ["Site", "Approx acres", "Traffic nearby", "Score", "Hardstanding confidence", "Flags", "Notes"] if c in df.columns]
+                        # Make sure key identification columns are present
+                        if "address" in df.columns and "Site" not in df.columns:
+                            df["Site"] = df["address"]
+                        if "site_id" in df.columns:
+                            df["Site ID"] = df["site_id"]
+                        
+                        display_cols = [c for c in ["Site", "Site ID", "Approx acres", "Traffic nearby", "Score", "Hardstanding confidence", "Flags", "Notes"] if c in df.columns]
                         # Final safety: drop any remaining duplicates
                         df = df.loc[:, ~df.columns.duplicated()]
                         st.dataframe(df[display_cols] if display_cols else df, use_container_width=True, hide_index=True)
@@ -366,15 +372,26 @@ elif page == "Past Searches & Shortlists":
                         else:
                             st.info("No coordinates available for map.")
                         
-                        # Source links
-                        if "source_links" in df.columns or any("google" in str(c).lower() for c in df.columns):
-                            st.subheader("Source links")
-                            for _, row in df.head(10).iterrows():
-                                links = row.get("source_links", {})
-                                if isinstance(links, dict):
-                                    gmaps = links.get("google_maps", "")
-                                    if gmaps:
-                                        st.markdown(f"**{row.get('Site','Site')}**: [Google Maps]({gmaps})")
+                        # Source links - always show
+                        st.subheader("Identify the site")
+                        for _, row in df.head(15).iterrows():
+                            site_name = row.get("Site") or row.get("address") or "Site"
+                            site_id = row.get("Site ID") or row.get("site_id") or ""
+                            links = row.get("source_links", {})
+                            if isinstance(links, dict):
+                                gmaps = links.get("google_maps", "")
+                                planning = links.get("planning_data", "")
+                                link_text = []
+                                if gmaps:
+                                    link_text.append(f"[Google Maps]({gmaps})")
+                                if planning:
+                                    link_text.append(f"[Planning Data]({planning})")
+                                if link_text:
+                                    st.markdown(f"**{site_name}** {f'({site_id})' if site_id else ''} — {' | '.join(link_text)}")
+                                else:
+                                    st.markdown(f"**{site_name}** {f'({site_id})' if site_id else ''}")
+                            else:
+                                st.markdown(f"**{site_name}** {f'({site_id})' if site_id else ''}")
                         
                         # Excel with links
                         st.subheader("Export")
