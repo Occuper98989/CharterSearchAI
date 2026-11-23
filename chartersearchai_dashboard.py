@@ -308,6 +308,9 @@ elif page == "Past Searches & Shortlists":
                     else:
                         df = pd.DataFrame(sites)
                         
+                        # Force unique column names
+                        df.columns = [f"{col}_{i}" if df.columns.tolist().count(col) > 1 else col for i, col in enumerate(df.columns)]
+                        
                         # Normalise column names
                         col_map = {
                             "site": "Site", "name": "Site", "title": "Site", "address": "Site",
@@ -340,6 +343,8 @@ elif page == "Past Searches & Shortlists":
                         df["Flags"] = flags
                         
                         display_cols = [c for c in ["Site", "Approx acres", "Traffic nearby", "Score", "Hardstanding confidence", "Flags", "Notes"] if c in df.columns]
+                        # Final safety: drop any remaining duplicates
+                        df = df.loc[:, ~df.columns.duplicated()]
                         st.dataframe(df[display_cols] if display_cols else df, use_container_width=True, hide_index=True)
                         
                         # Map view with selection
