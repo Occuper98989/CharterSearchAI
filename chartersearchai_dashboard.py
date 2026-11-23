@@ -391,21 +391,21 @@ elif page == "Past Searches & Shortlists":
                         # Links for ALL sites
                         st.subheader("Identify the site (all results)")
                         for _, row in df.iterrows():
+                            num = row.get("No.", "")
                             site_name = row.get("Site") or row.get("address") or "Site"
                             site_id = row.get("Site ID") or row.get("site_id") or ""
                             links = row.get("source_links", {})
+                            lr = row.get("land_registry_link", "")
+                            link_parts = []
                             if isinstance(links, dict):
-                                gmaps = links.get("google_maps", "")
-                                planning = links.get("planning_data", "")
-                                link_parts = []
-                                if gmaps:
-                                    link_parts.append(f"[Google Maps]({gmaps})")
-                                if planning:
-                                    link_parts.append(f"[Planning Data]({planning})")
-                                links_str = " | ".join(link_parts) if link_parts else "No direct link"
-                                st.markdown(f"**{site_name}** {f'({site_id})' if site_id else ''} — {links_str}")
-                            else:
-                                st.markdown(f"**{site_name}** {f'({site_id})' if site_id else ''}")
+                                if links.get("google_maps"):
+                                    link_parts.append(f"[Google Maps]({links['google_maps']})")
+                                if links.get("planning_data"):
+                                    link_parts.append(f"[Planning Data]({links['planning_data']})")
+                            if lr:
+                                link_parts.append(f"[Land Registry]({lr})")
+                            links_str = " | ".join(link_parts) if link_parts else "No direct link"
+                            st.markdown(f"**{num}. {site_name}** {f'({site_id})' if site_id else ''} — {links_str}")
                         
                         # Excel with links
                         st.subheader("Export")
