@@ -328,11 +328,16 @@ elif page == "Past Searches & Shortlists":
                         
                         st.subheader(f"Candidate sites ({len(df)})")
                         
-                        # Add flags
-                        if "Ownership" in df.columns:
-                            df["Flags"] = df["Ownership"].apply(lambda x: "Public ownership" if "public" in str(x).lower() else "")
-                        if "VOA" in df.columns:
-                            df["Flags"] = df.get("Flags", "") + df["VOA"].apply(lambda x: " | No VOA" if "no" in str(x).lower() else "")
+                        # Add flags safely
+                        flags = []
+                        for _, row in df.iterrows():
+                            f = []
+                            if "Ownership" in df.columns and "public" in str(row.get("Ownership", "")).lower():
+                                f.append("Public ownership")
+                            if "VOA" in df.columns and "no" in str(row.get("VOA", "")).lower():
+                                f.append("No VOA")
+                            flags.append(" | ".join(f) if f else "")
+                        df["Flags"] = flags
                         
                         display_cols = [c for c in ["Site", "Approx acres", "Traffic nearby", "Score", "Hardstanding confidence", "Flags", "Notes"] if c in df.columns]
                         st.dataframe(df[display_cols] if display_cols else df, use_container_width=True, hide_index=True)
