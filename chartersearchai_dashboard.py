@@ -177,8 +177,9 @@ Run a full scan for overlooked commercial development sites matching these exact
         with open(os.path.join(DATA_DIR, f"prompt_{search_id}.txt"), "w") as f:
             f.write(bot_prompt)
         
-        st.success(f"**{search_name}** started. Agent triggered with exact form values.")
-        st.info("The CharterSearchAI agent is now scanning. Results (including map coordinates and hardstanding notes) will appear under Past Searches. Check the agent transcript for progress.")
+        st.success(f"**{search_name}** started.")
+        st.info("👉 **Go to Past Searches & Shortlists** (left sidebar) to view results, map, hardstanding notes, and download the Excel shortlist.")
+        st.balloons()
         
         # Demo results with coordinates for map
         demo_sites = [
@@ -193,10 +194,21 @@ Run a full scan for overlooked commercial development sites matching these exact
 elif page == "Past Searches & Shortlists":
     st.header("Past Searches & Shortlists")
     if not searches:
-        st.info("No searches yet.")
+        st.info("No searches yet. Run one from the New Search page.")
     else:
         for sid, crit in reversed(list(searches.items())):
-            with st.expander(f"**{crit['name']}** — {crit.get('created', '')[:16]}"):
+            col_a, col_b = st.columns([5, 1])
+            with col_a:
+                expander_label = f"**{crit['name']}** — {crit.get('created', '')[:16]}"
+            with col_b:
+                if st.button("🗑️ Delete", key=f"del_{sid}"):
+                    searches.pop(sid, None)
+                    results.pop(sid, None)
+                    save_json(SEARCHES_FILE, searches)
+                    save_json(RESULTS_FILE, results)
+                    st.rerun()
+            
+            with st.expander(expander_label):
                 if sid in results:
                     sites = results[sid]["sites"]
                     df = pd.DataFrame(sites)
@@ -231,6 +243,17 @@ elif page == "Past Searches & Shortlists":
                         df.to_excel(writer, index=False, sheet_name="Shortlist")
                     excel_data = output.getvalue()
                     st.download_button(
+                        label="📥 Download Excel shortlist",
+                        data=excel_data,
+                        file_name=f"CharterSearchAI_{crit['name'].replace(' ','_')}.xlsx",
+                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                    )
+                    
+                    shortlisted = st.multiselect("Mark for shortlist", df["Site"].tolist(), key=f"short_{sid}")
+                    if st.button(f"Save shortlist", key=f"save_{sid}"):
+                        st.success(f"Shortlisted {len(shortlisted)} sites.")
+                else:
+                    st.warning("Results pending...")
                         label="📥 Download Excel shortlist",
                         data=excel_data,
                         file_name=f"CharterSearchAI_{crit['name'].replace(' ','_')}.xlsx",
