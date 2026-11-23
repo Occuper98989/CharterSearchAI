@@ -257,8 +257,28 @@ elif page == "Past Searches & Shortlists":
                 if sid in results:
                     sites = results[sid]["sites"]
                     df = pd.DataFrame(sites)
+                    
+                    # Normalise column names so both demo and agent results work
+                    col_map = {
+                        "site": "Site",
+                        "name": "Site",
+                        "acres": "Approx acres",
+                        "approx_acres": "Approx acres",
+                        "aadf": "Traffic nearby",
+                        "traffic": "Traffic nearby",
+                        "score": "Score",
+                        "notes": "Notes",
+                        "reasons": "Notes",
+                        "lat": "Lat",
+                        "lon": "Lon",
+                        "hardstanding_confidence": "Hardstanding confidence",
+                        "hardstanding": "Hardstanding confidence"
+                    }
+                    df = df.rename(columns={c: col_map.get(c.lower(), c) for c in df.columns})
+                    
                     st.subheader("Candidate sites")
-                    st.dataframe(df.drop(columns=["Lat", "Lon"], errors="ignore"), use_container_width=True, hide_index=True)
+                    display_cols = [c for c in ["Site", "Approx acres", "Traffic nearby", "Score", "Notes", "Hardstanding confidence"] if c in df.columns]
+                    st.dataframe(df[display_cols] if display_cols else df, use_container_width=True, hide_index=True)
                     
                     # Map view
                     st.subheader("Map view")
@@ -266,20 +286,19 @@ elif page == "Past Searches & Shortlists":
                         m = folium.Map(location=[51.5, -0.1], zoom_start=9)
                         for _, row in df.iterrows():
                             if pd.notna(row.get("Lat")) and pd.notna(row.get("Lon")):
-                                folium.Marker(
-                                    [row["Lat"], row["Lon"]],
-                                    popup=f"{row['Site']}<br>Score: {row['Score']}<br>{row.get('Notes','')}",
-                                    tooltip=row["Site"]
-                                ).add_to(m)
+                                popup = f"{row.get('Site','Site')}<br>Score: {row.get('Score','')}"
+                                folium.Marker([row["Lat"], row["Lon"]], popup=popup, tooltip=row.get("Site","Site")).add_to(m)
                         st_folium(m, width=700, height=400)
                     else:
-                        st.info("Coordinates pending from agent for map view.")
+                        st.info("No coordinates available for map.")
                     
                     # Satellite hardstanding notes
                     st.subheader("Satellite hardstanding checks")
-                    for _, row in df.iterrows():
-                        conf = row.get("Hardstanding confidence", "Pending")
-                        st.markdown(f"**{row['Site']}**: {conf} — {row.get('Notes', '')}")
+                    if "Hardstanding confidence" in df.columns:
+                        for _, row in df.iterrows():
+                            st.markdown(f"**{row.get('Site','Site')}**: {row.get('Hardstanding confidence','')} — {row.get('Notes','')}")
+                    else:
+                        st.info("No hardstanding confidence data.")
                     
                     # Excel export
                     st.subheader("Export")
@@ -294,8 +313,9 @@ elif page == "Past Searches & Shortlists":
                         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                     )
                     
-                    shortlisted = st.multiselect("Mark for shortlist", df["Site"].tolist(), key=f"short_{sid}")
-                    if st.button(f"Save shortlist", key=f"save_{sid}"):
+                    site_col = "Site" if "Site" in df.columns else df.columns[0]
+                    shortlisted = st.multiselect("Mark for shortlist", df[site_col].dropna().astype(str).tolist(), key=f"short_{sid}")
+                    if st.button("Save shortlist", key=f"save_{sid}"):
                         st.success(f"Shortlisted {len(shortlisted)} sites.")
                 else:
                     st.warning("Results pending...")
