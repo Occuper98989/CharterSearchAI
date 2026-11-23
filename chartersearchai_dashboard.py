@@ -272,45 +272,63 @@ elif page == "Past Searches & Shortlists":
                         
                         # Normalise column names
                         col_map = {
-                            "site": "Site", "name": "Site", "title": "Site",
+                            "site": "Site", "name": "Site", "title": "Site", "address": "Site",
                             "acres": "Approx acres", "approx_acres": "Approx acres",
                             "aadf": "Traffic nearby", "traffic": "Traffic nearby",
                             "score": "Score", "notes": "Notes", "reasons": "Notes",
                             "lat": "Lat", "lon": "Lon",
                             "hardstanding_confidence": "Hardstanding confidence",
-                            "hardstanding": "Hardstanding confidence"
+                            "hardstanding": "Hardstanding confidence",
+                            "voa_status": "VOA", "ownership_status": "Ownership"
                         }
                         df = df.rename(columns={c: col_map.get(str(c).lower(), c) for c in df.columns})
                         
-                        st.subheader("Candidate sites")
-                        if len(df.columns) > 0:
-                            st.dataframe(df, use_container_width=True, hide_index=True)
-                        else:
-                            st.json(sites)
+                        # Overlooked filter
+                        show_overlooked = st.checkbox("Show only overlooked sites (high score, low build, hardstanding priority)", value=True, key=f"overlook_{sid}")
+                        if show_overlooked and "Score" in df.columns:
+                            df = df[df["Score"] >= 70]
                         
-                        # Map view
+                        st.subheader(f"Candidate sites ({len(df)})")
+                        
+                        # Add flags
+                        if "Ownership" in df.columns:
+                            df["Flags"] = df["Ownership"].apply(lambda x: "Public ownership" if "public" in str(x).lower() else "")
+                        if "VOA" in df.columns:
+                            df["Flags"] = df.get("Flags", "") + df["VOA"].apply(lambda x: " | No VOA" if "no" in str(x).lower() else "")
+                        
+                        display_cols = [c for c in ["Site", "Approx acres", "Traffic nearby", "Score", "Hardstanding confidence", "Flags", "Notes"] if c in df.columns]
+                        st.dataframe(df[display_cols] if display_cols else df, use_container_width=True, hide_index=True)
+                        
+                        # Map view with selection
                         st.subheader("Map view")
                         if "Lat" in df.columns and "Lon" in df.columns and len(df) > 0:
                             m = folium.Map(location=[51.5, -0.1], zoom_start=9)
-                            for _, row in df.iterrows():
+                            for idx, row in df.iterrows():
                                 if pd.notna(row.get("Lat")) and pd.notna(row.get("Lon")):
-                                    popup = f"{row.get('Site', 'Site')}<br>Score: {row.get('Score', '')}"
-                                    folium.Marker([row["Lat"], row["Lon"]], popup=popup, tooltip=str(row.get("Site", "Site"))).add_to(m)
-                            st_folium(m, width=700, height=400)
+                                    popup = f"{row.get('Site', 'Site')}<br>Score: {row.get('Score', '')}<br>{row.get('Hardstanding confidence', '')}"
+                                    folium.Marker(
+                                        [row["Lat"], row["Lon"]],
+                                        popup=popup,
+                                        tooltip=str(row.get("Site", "Site")),
+                                        icon=folium.Icon(color="red" if row.get("Score", 0) >= 80 else "blue")
+                                    ).add_to(m)
+                            map_data = st_folium(m, width=700, height=450, key=f"map_{sid}")
+                            if map_data and map_data.get("last_object_clicked"):
+                                st.info(f"Selected on map: {map_data['last_object_clicked']}")
                         else:
                             st.info("No coordinates available for map.")
                         
-                        # Hardstanding
-                        st.subheader("Satellite hardstanding checks")
-                        if "Hardstanding confidence" in df.columns:
-                            for _, row in df.iterrows():
-                                site_name = row.get("Site") or row.get("address") or row.get("site_id") or "Site"
-                                conf = row.get("Hardstanding confidence", "")
-                                st.markdown(f"**{site_name}**: {conf}")
-                        else:
-                            st.info("No hardstanding confidence data.")
+                        # Source links
+                        if "source_links" in df.columns or any("google" in str(c).lower() for c in df.columns):
+                            st.subheader("Source links")
+                            for _, row in df.head(10).iterrows():
+                                links = row.get("source_links", {})
+                                if isinstance(links, dict):
+                                    gmaps = links.get("google_maps", "")
+                                    if gmaps:
+                                        st.markdown(f"**{row.get('Site','Site')}**: [Google Maps]({gmaps})")
                         
-                        # Excel
+                        # Excel with links
                         st.subheader("Export")
                         if len(df.columns) > 0:
                             output = BytesIO()
@@ -324,12 +342,7 @@ elif page == "Past Searches & Shortlists":
                             )
                         
                         # Shortlist
-                        site_options = []
-                        if "Site" in df.columns:
-                            site_options = df["Site"].dropna().astype(str).tolist()
-                        elif len(df.columns) > 0:
-                            site_options = df.iloc[:, 0].dropna().astype(str).tolist()
-                        
+                        site_options = df["Site"].dropna().astype(str).tolist() if "Site" in df.columns else []
                         if site_options:
                             shortlisted = st.multiselect("Mark for shortlist", site_options, key=f"short_{sid}")
                             if st.button("Save shortlist", key=f"save_{sid}"):
