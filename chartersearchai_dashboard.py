@@ -254,17 +254,6 @@ elif page == "Past Searches & Shortlists":
                         st.success(f"Shortlisted {len(shortlisted)} sites.")
                 else:
                     st.warning("Results pending...")
-                        label="📥 Download Excel shortlist",
-                        data=excel_data,
-                        file_name=f"CharterSearchAI_{crit['name'].replace(' ','_')}.xlsx",
-                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-                    )
-                    
-                    shortlisted = st.multiselect("Mark for shortlist", df["Site"].tolist(), key=f"short_{sid}")
-                    if st.button(f"Save shortlist", key=f"save_{sid}"):
-                        st.success(f"Shortlisted {len(shortlisted)} sites.")
-                else:
-                    st.warning("Results pending from agent...")
 
 elif page == "How it works":
     st.header("How CharterSearchAI works")
