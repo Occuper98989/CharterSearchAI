@@ -255,68 +255,72 @@ elif page == "Past Searches & Shortlists":
             
             with st.expander(expander_label):
                 if sid in results:
-                    sites = results[sid]["sites"]
-                    df = pd.DataFrame(sites)
-                    
-                    # Normalise column names so both demo and agent results work
-                    col_map = {
-                        "site": "Site",
-                        "name": "Site",
-                        "acres": "Approx acres",
-                        "approx_acres": "Approx acres",
-                        "aadf": "Traffic nearby",
-                        "traffic": "Traffic nearby",
-                        "score": "Score",
-                        "notes": "Notes",
-                        "reasons": "Notes",
-                        "lat": "Lat",
-                        "lon": "Lon",
-                        "hardstanding_confidence": "Hardstanding confidence",
-                        "hardstanding": "Hardstanding confidence"
-                    }
-                    df = df.rename(columns={c: col_map.get(c.lower(), c) for c in df.columns})
-                    
-                    st.subheader("Candidate sites")
-                    display_cols = [c for c in ["Site", "Approx acres", "Traffic nearby", "Score", "Notes", "Hardstanding confidence"] if c in df.columns]
-                    st.dataframe(df[display_cols] if display_cols else df, use_container_width=True, hide_index=True)
-                    
-                    # Map view
-                    st.subheader("Map view")
-                    if "Lat" in df.columns and "Lon" in df.columns:
-                        m = folium.Map(location=[51.5, -0.1], zoom_start=9)
-                        for _, row in df.iterrows():
-                            if pd.notna(row.get("Lat")) and pd.notna(row.get("Lon")):
-                                popup = f"{row.get('Site','Site')}<br>Score: {row.get('Score','')}"
-                                folium.Marker([row["Lat"], row["Lon"]], popup=popup, tooltip=row.get("Site","Site")).add_to(m)
-                        st_folium(m, width=700, height=400)
+                    sites = results[sid].get("sites", [])
+                    if not sites:
+                        st.warning("No sites returned for this search.")
                     else:
-                        st.info("No coordinates available for map.")
-                    
-                    # Satellite hardstanding notes
-                    st.subheader("Satellite hardstanding checks")
-                    if "Hardstanding confidence" in df.columns:
-                        for _, row in df.iterrows():
-                            st.markdown(f"**{row.get('Site','Site')}**: {row.get('Hardstanding confidence','')} — {row.get('Notes','')}")
-                    else:
-                        st.info("No hardstanding confidence data.")
-                    
-                    # Excel export
-                    st.subheader("Export")
-                    output = BytesIO()
-                    with pd.ExcelWriter(output, engine="openpyxl") as writer:
-                        df.to_excel(writer, index=False, sheet_name="Shortlist")
-                    excel_data = output.getvalue()
-                    st.download_button(
-                        label="📥 Download Excel shortlist",
-                        data=excel_data,
-                        file_name=f"CharterSearchAI_{crit['name'].replace(' ','_')}.xlsx",
-                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-                    )
-                    
-                    site_col = "Site" if "Site" in df.columns else df.columns[0]
-                    shortlisted = st.multiselect("Mark for shortlist", df[site_col].dropna().astype(str).tolist(), key=f"short_{sid}")
-                    if st.button("Save shortlist", key=f"save_{sid}"):
-                        st.success(f"Shortlisted {len(shortlisted)} sites.")
+                        df = pd.DataFrame(sites)
+                        
+                        # Normalise column names
+                        col_map = {
+                            "site": "Site", "name": "Site", "title": "Site",
+                            "acres": "Approx acres", "approx_acres": "Approx acres",
+                            "aadf": "Traffic nearby", "traffic": "Traffic nearby",
+                            "score": "Score", "notes": "Notes", "reasons": "Notes",
+                            "lat": "Lat", "lon": "Lon",
+                            "hardstanding_confidence": "Hardstanding confidence",
+                            "hardstanding": "Hardstanding confidence"
+                        }
+                        df = df.rename(columns={c: col_map.get(str(c).lower(), c) for c in df.columns})
+                        
+                        st.subheader("Candidate sites")
+                        if len(df.columns) > 0:
+                            st.dataframe(df, use_container_width=True, hide_index=True)
+                        else:
+                            st.json(sites)
+                        
+                        # Map view
+                        st.subheader("Map view")
+                        if "Lat" in df.columns and "Lon" in df.columns and len(df) > 0:
+                            m = folium.Map(location=[51.5, -0.1], zoom_start=9)
+                            for _, row in df.iterrows():
+                                if pd.notna(row.get("Lat")) and pd.notna(row.get("Lon")):
+                                    popup = f"{row.get('Site', 'Site')}<br>Score: {row.get('Score', '')}"
+                                    folium.Marker([row["Lat"], row["Lon"]], popup=popup, tooltip=str(row.get("Site", "Site"))).add_to(m)
+                            st_folium(m, width=700, height=400)
+                        else:
+                            st.info("No coordinates available for map.")
+                        
+                        # Hardstanding
+                        st.subheader("Satellite hardstanding checks")
+                        if "Hardstanding confidence" in df.columns:
+                            for _, row in df.iterrows():
+                                st.markdown(f"**{row.get('Site', 'Site')}**: {row.get('Hardstanding confidence', '')} — {row.get('Notes', '')}")
+                        
+                        # Excel
+                        st.subheader("Export")
+                        if len(df.columns) > 0:
+                            output = BytesIO()
+                            with pd.ExcelWriter(output, engine="openpyxl") as writer:
+                                df.to_excel(writer, index=False, sheet_name="Shortlist")
+                            st.download_button(
+                                label="📥 Download Excel shortlist",
+                                data=output.getvalue(),
+                                file_name=f"CharterSearchAI_{crit['name'].replace(' ','_')}.xlsx",
+                                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                            )
+                        
+                        # Shortlist
+                        site_options = []
+                        if "Site" in df.columns:
+                            site_options = df["Site"].dropna().astype(str).tolist()
+                        elif len(df.columns) > 0:
+                            site_options = df.iloc[:, 0].dropna().astype(str).tolist()
+                        
+                        if site_options:
+                            shortlisted = st.multiselect("Mark for shortlist", site_options, key=f"short_{sid}")
+                            if st.button("Save shortlist", key=f"save_{sid}"):
+                                st.success(f"Shortlisted {len(shortlisted)} sites.")
                 else:
                     st.warning("Results pending...")
 
