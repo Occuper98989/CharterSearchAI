@@ -324,12 +324,14 @@ elif page == "Past Searches & Shortlists":
                         """)
                         
                         show_map_only = st.checkbox("Include map-only (overlooked) sites", value=True, key=f"maponly_{sid}")
-                        if not show_map_only:
-                            # Filter out map-only sites (those without a proper address or with generic names)
-                            if "Site" in df.columns:
-                                df = df[~df["Site"].astype(str).str.lower().str.contains("surface car park|brownfield land \\(osm\\)|osm", na=False, regex=True)]
+                        if not show_map_only and "Site" in df.columns:
+                            # Hide generic map-only sites
+                            mask = df["Site"].astype(str).str.lower().str.contains("surface car park", na=False) | \
+                                   df["Site"].astype(str).str.lower().str.contains("brownfield land", na=False) | \
+                                   df["Site"].astype(str).str.lower().str.contains("osm", na=False)
+                            df = df[~mask]
                         
-                        show_overlooked = st.checkbox("Show only high-scoring sites (≥70)", value=False, key=f"overlook_{sid}")
+                        show_overlooked = st.checkbox("Show only high-scoring sites (≥70)", value=True, key=f"overlook_{sid}")
                         if show_overlooked and "Score" in df.columns:
                             df = df[df["Score"] >= 70]
                         
@@ -339,38 +341,27 @@ elif page == "Past Searches & Shortlists":
                         
                         st.subheader(f"Candidate sites ({len(df)})")
                         
-                        # Build links column (including Land Registry when available)
-                        def make_links(row):
-                            parts = []
+                        # Separate link columns
+                        def get_maps(row):
                             links = row.get("source_links", {})
-                            if isinstance(links, dict):
-                                if links.get("google_maps"):
-                                    parts.append(f'<a href="{links["google_maps"]}" target="_blank">Maps</a>')
-                                if links.get("planning_data"):
-                                    parts.append(f'<a href="{links["planning_data"]}" target="_blank">Planning</a>')
-                            lr = row.get("land_registry_link")
-                            if lr:
-                                parts.append(f'<a href="{lr}" target="_blank">Land Registry</a>')
-                            return " | ".join(parts) if parts else ""
+                            return links.get("google_maps", "") if isinstance(links, dict) else ""
                         
-                        df["Links"] = df.apply(make_links, axis=1)
+                        def get_lr(row):
+                            return row.get("land_registry_link", "")
                         
-                        # Title number column (ready for when the agent sends it)
-                        if "title_number" in df.columns:
-                            df["Title No."] = df["title_number"]
-                        else:
-                            df["Title No."] = ""
+                        df["Google Maps"] = df.apply(get_maps, axis=1)
+                        df["Land Registry"] = df.apply(get_lr, axis=1)
                         
                         # Site selector
                         site_list = []
-                        if "Site" in df.columns:
+                        if "Site" in df.columns and "No." in df.columns:
                             try:
                                 site_list = [f"{n}. {s}" for n, s in zip(df["No."], df["Site"].astype(str))]
                             except:
                                 site_list = []
                         selected = st.selectbox("Select a site to highlight on the map", [""] + site_list, key=f"sel_{sid}")
                         
-                        display_cols = [c for c in ["No.", "Site", "Title No.", "Site ID", "Approx acres", "Traffic nearby", "Score", "Hardstanding confidence", "Flags", "Links"] if c in df.columns]
+                        display_cols = [c for c in ["No.", "Site", "Title No.", "Approx acres", "Traffic nearby", "Score", "Hardstanding confidence", "Google Maps", "Land Registry"] if c in df.columns]
                         df = df.loc[:, ~df.columns.duplicated()]
                         st.dataframe(df[display_cols] if display_cols else df, use_container_width=True, hide_index=True)
                         
