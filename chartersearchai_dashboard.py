@@ -470,8 +470,8 @@ elif page == "Past Searches & Shortlists":
                                                         sites_own = ownership_data.get("sites", [])
                                                         if sites_own:
                                                             own_df = pd.DataFrame(sites_own)
-                                                            # Add site number from original selection if possible
-                                                            own_df.insert(0, "No.", range(1, len(own_df) + 1))
+                                                            # Map back to original site numbers
+                                                            own_df["No."] = own_df["site_id"].map(site_number_map)
                                                             # Make link clickable
                                                             if "land_registry_link" in own_df.columns:
                                                                 own_df["Land Registry Map"] = own_df["land_registry_link"]
