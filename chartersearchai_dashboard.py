@@ -464,8 +464,15 @@ elif page == "Past Searches & Shortlists":
                                                     resp = requests.post(f"{api_url.rstrip('/')}/ownership", json={"sites": selected_rows}, headers=headers, timeout=120)
                                                     if resp.status_code == 200:
                                                         ownership_data = resp.json()
-                                                        st.success("Ownership details received.")
-                                                        st.json(ownership_data)
+                                                        sites_own = ownership_data.get("sites", [])
+                                                        if sites_own:
+                                                            own_df = pd.DataFrame(sites_own)
+                                                            # Keep only useful columns
+                                                            cols = [c for c in ["site_id", "land_registry_link", "title_number", "proprietor", "ownership_status", "ownership_note"] if c in own_df.columns]
+                                                            st.success(f"Ownership details for {len(sites_own)} site(s)")
+                                                            st.dataframe(own_df[cols] if cols else own_df, use_container_width=True, hide_index=True)
+                                                        else:
+                                                            st.info("No ownership data returned.")
                                                     else:
                                                         st.error(f"Ownership request failed: {resp.status_code} – {resp.text[:300]}")
                                                 else:
