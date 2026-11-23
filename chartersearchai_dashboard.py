@@ -69,18 +69,22 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# Header branding - closer to mockup
+# Header branding
 col1, col2, col3 = st.columns([1.2, 3, 1.5])
 with col1:
-    st.markdown("""
-    <div style="display:flex; align-items:center; gap:10px;">
-        <div style="font-size:28px;">🏗️</div>
-        <div>
-            <div style="font-family:Montserrat,sans-serif; font-weight:600; color:#C9A578; font-size:14px;">CHARTERHOUSE</div>
-            <div style="font-size:10px; color:#888;">PROPERTY GROUP</div>
+    logo_path = "charterhouse_logo.png"
+    if os.path.exists(logo_path):
+        st.image(logo_path, width=180)
+    else:
+        st.markdown("""
+        <div style="display:flex; align-items:center; gap:10px;">
+            <div style="font-size:28px;">🏗️</div>
+            <div>
+                <div style="font-family:Montserrat,sans-serif; font-weight:600; color:#C9A578; font-size:14px;">CHARTERHOUSE</div>
+                <div style="font-size:10px; color:#888;">PROPERTY GROUP</div>
+            </div>
         </div>
-    </div>
-    """, unsafe_allow_html=True)
+        """, unsafe_allow_html=True)
 with col2:
     st.markdown("# CharterSearchAI")
     st.caption("Land sourcing intelligence for Charterhouse Property Group")
@@ -106,17 +110,21 @@ def save_json(path, data):
 searches = load_json(SEARCHES_FILE, {})
 results = load_json(RESULTS_FILE, {})
 
-# Sidebar - improved
+# Sidebar
 with st.sidebar:
-    st.markdown("""
-    <div style="text-align:center; padding:10px 0 20px 0;">
-        <div style="font-size:32px;">🏗️</div>
-        <div style="font-family:Montserrat,sans-serif; font-weight:600; color:#C9A578; font-size:16px;">CHARTERHOUSE</div>
-        <div style="font-size:11px; color:#aaa;">PROPERTY GROUP</div>
-    </div>
-    """, unsafe_allow_html=True)
+    logo_path = "charterhouse_logo.png"
+    if os.path.exists(logo_path):
+        st.image(logo_path, width=160)
+    else:
+        st.markdown("""
+        <div style="text-align:center; padding:10px 0 20px 0;">
+            <div style="font-size:32px;">🏗️</div>
+            <div style="font-family:Montserrat,sans-serif; font-weight:600; color:#C9A578; font-size:16px;">CHARTERHOUSE</div>
+            <div style="font-size:11px; color:#aaa;">PROPERTY GROUP</div>
+        </div>
+        """, unsafe_allow_html=True)
     st.markdown("---")
-    page = st.radio("Navigate", ["New Search", "Past Searches & Shortlists", "How it works"])
+    page = st.radio("Navigate", ["New Search", "Past Searches & Shortlists"])
     st.markdown("---")
     st.caption("Investing in UK real estate for over 30 years")
 
@@ -296,7 +304,11 @@ elif page == "Past Searches & Shortlists":
                         st.subheader("Satellite hardstanding checks")
                         if "Hardstanding confidence" in df.columns:
                             for _, row in df.iterrows():
-                                st.markdown(f"**{row.get('Site', 'Site')}**: {row.get('Hardstanding confidence', '')} — {row.get('Notes', '')}")
+                                site_name = row.get("Site") or row.get("address") or row.get("site_id") or "Site"
+                                conf = row.get("Hardstanding confidence", "")
+                                st.markdown(f"**{site_name}**: {conf}")
+                        else:
+                            st.info("No hardstanding confidence data.")
                         
                         # Excel
                         st.subheader("Export")
@@ -324,16 +336,6 @@ elif page == "Past Searches & Shortlists":
                                 st.success(f"Shortlisted {len(shortlisted)} sites.")
                 else:
                     st.warning("Results pending...")
-
-elif page == "How it works":
-    st.header("How CharterSearchAI works")
-    st.markdown("""
-    - **Run button is fully wired**: Submitting the form builds the exact criteria prompt and triggers the CharterSearchAI agent.
-    - **Map view**: Sites with coordinates are plotted on an interactive map.
-    - **Satellite hardstanding checks**: Agent notes include hardstanding confidence from imagery analysis.
-    - **Excel export**: One-click download of the full shortlist.
-    - Styled to match Charterhouse Property Group.
-    """)
 
 st.markdown("---")
 st.caption("CharterSearchAI · Charterhouse Property Group")
