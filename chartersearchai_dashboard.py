@@ -467,10 +467,21 @@ elif page == "Past Searches & Shortlists":
                                                         sites_own = ownership_data.get("sites", [])
                                                         if sites_own:
                                                             own_df = pd.DataFrame(sites_own)
-                                                            # Keep only useful columns
-                                                            cols = [c for c in ["site_id", "land_registry_link", "title_number", "proprietor", "ownership_status", "ownership_note"] if c in own_df.columns]
+                                                            # Add site number from original selection if possible
+                                                            own_df.insert(0, "No.", range(1, len(own_df) + 1))
+                                                            # Make link clickable
+                                                            if "land_registry_link" in own_df.columns:
+                                                                own_df["Land Registry Map"] = own_df["land_registry_link"]
+                                                            cols = [c for c in ["No.", "site_id", "Land Registry Map", "title_number", "proprietor", "ownership_status", "ownership_note"] if c in own_df.columns]
                                                             st.success(f"Ownership details for {len(sites_own)} site(s)")
-                                                            st.dataframe(own_df[cols] if cols else own_df, use_container_width=True, hide_index=True)
+                                                            st.dataframe(
+                                                                own_df[cols] if cols else own_df,
+                                                                use_container_width=True,
+                                                                hide_index=True,
+                                                                column_config={
+                                                                    "Land Registry Map": st.column_config.LinkColumn("Land Registry Map")
+                                                                }
+                                                            )
                                                         else:
                                                             st.info("No ownership data returned.")
                                                     else:
