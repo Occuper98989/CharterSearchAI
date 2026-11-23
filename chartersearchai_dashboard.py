@@ -347,7 +347,14 @@ elif page == "Past Searches & Shortlists":
                             return links.get("google_maps", "") if isinstance(links, dict) else ""
                         
                         def get_lr(row):
-                            return row.get("land_registry_link", "")
+                            lr = row.get("land_registry_link", "")
+                            if lr:
+                                return lr
+                            lat = row.get("Lat")
+                            lon = row.get("Lon")
+                            if pd.notna(lat) and pd.notna(lon):
+                                return f"Search: {lat:.5f}, {lon:.5f}"
+                            return "Search on Land Registry"
                         
                         df["Google Maps"] = df.apply(get_maps, axis=1)
                         df["Land Registry"] = df.apply(get_lr, axis=1)
@@ -404,6 +411,14 @@ elif page == "Past Searches & Shortlists":
                                     link_parts.append(f"[Planning Data]({links['planning_data']})")
                             if lr:
                                 link_parts.append(f"[Land Registry]({lr})")
+                            else:
+                                # Fallback: link to official Land Registry search + coordinates
+                                lat = row.get("Lat")
+                                lon = row.get("Lon")
+                                if pd.notna(lat) and pd.notna(lon):
+                                    link_parts.append(f"[Search ownership on Land Registry](https://www.gov.uk/search-property-information-land-registry) (coords: {lat:.5f}, {lon:.5f})")
+                                else:
+                                    link_parts.append("[Search ownership on Land Registry](https://www.gov.uk/search-property-information-land-registry)")
                             links_str = " | ".join(link_parts) if link_parts else "No direct link"
                             st.markdown(f"**{num}. {site_name}** {f'({site_id})' if site_id else ''} — {links_str}")
                         
