@@ -324,27 +324,54 @@ elif page == "Past Searches & Shortlists":
                         """)
                         
                         show_map_only = st.checkbox("Include map-only (overlooked) sites", value=True, key=f"maponly_{sid}")
-                        if not show_map_only and "source" in df.columns:
-                            df = df[~df["source"].astype(str).str.contains("map", case=False, na=False)]
+                        if not show_map_only:
+                            # Filter out map-only sites (those without a proper address or with generic names)
+                            if "Site" in df.columns:
+                                df = df[~df["Site"].astype(str).str.lower().str.contains("surface car park|brownfield land \\(osm\\)|osm", na=False, regex=True)]
                         
                         show_overlooked = st.checkbox("Show only high-scoring sites (≥70)", value=False, key=f"overlook_{sid}")
                         if show_overlooked and "Score" in df.columns:
                             df = df[df["Score"] >= 70]
                         
+                        # Add site number
+                        df = df.reset_index(drop=True)
+                        df.insert(0, "No.", range(1, len(df) + 1))
+                        
                         st.subheader(f"Candidate sites ({len(df)})")
                         
-                        # Site selector to highlight on map
+                        # Build links column (including Land Registry when available)
+                        def make_links(row):
+                            parts = []
+                            links = row.get("source_links", {})
+                            if isinstance(links, dict):
+                                if links.get("google_maps"):
+                                    parts.append(f'<a href="{links["google_maps"]}" target="_blank">Maps</a>')
+                                if links.get("planning_data"):
+                                    parts.append(f'<a href="{links["planning_data"]}" target="_blank">Planning</a>')
+                            lr = row.get("land_registry_link")
+                            if lr:
+                                parts.append(f'<a href="{lr}" target="_blank">Land Registry</a>')
+                            return " | ".join(parts) if parts else ""
+                        
+                        df["Links"] = df.apply(make_links, axis=1)
+                        
+                        # Title number column (ready for when the agent sends it)
+                        if "title_number" in df.columns:
+                            df["Title No."] = df["title_number"]
+                        else:
+                            df["Title No."] = ""
+                        
+                        # Site selector
                         site_list = []
                         if "Site" in df.columns:
                             try:
-                                site_list = df["Site"].dropna().astype(str).unique().tolist()
+                                site_list = [f"{n}. {s}" for n, s in zip(df["No."], df["Site"].astype(str))]
                             except:
                                 site_list = []
-                        selected_site = st.selectbox("Select a site to highlight on the map", [""] + site_list, key=f"sel_{sid}")
+                        selected = st.selectbox("Select a site to highlight on the map", [""] + site_list, key=f"sel_{sid}")
                         
-                        display_cols = [c for c in ["Site", "Site ID", "Approx acres", "Traffic nearby", "Score", "Hardstanding confidence", "Flags"] if c in df.columns]
-                        df = df.loc[:, ~df.columns.duplicated()]
-                        st.dataframe(df[display_cols] if display_cols else df, use_container_width=True, hide_index=True)
+                        display_cols = [c for c in ["No.", "Site", "Title No.", "Site ID", "Approx acres", "Traffic nearby", "Score", "Hardstanding confidence", "Flags", "Links"] if c in df.columns]
+                        st.dataframe(df[display_cols] if display_cols else df, use_container_width=True, hide_index=True, column_config={"Links": st.column_config.LinkColumn("Links")})
                         
                         # Map view
                         st.subheader("Map view")
@@ -352,12 +379,17 @@ elif page == "Past Searches & Shortlists":
                             m = folium.Map(location=[51.5, -0.1], zoom_start=9)
                             for _, row in df.iterrows():
                                 if pd.notna(row.get("Lat")) and pd.notna(row.get("Lon")):
-                                    is_selected = selected_site and selected_site == str(row.get("Site", ""))
-                                    popup = f"{row.get('Site', 'Site')}<br>Score: {row.get('Score', '')}"
+                                    num = row.get("No.", "")
+                                    name = row.get("Site", "Site")
+                                    is_selected = selected and selected.startswith(f"{num}.")
+                                    popup = f"<b>{num}. {name}</b><br>Score: {row.get('Score', '')}"
+                                    links = row.get("source_links", {})
+                                    if isinstance(links, dict) and links.get("google_maps"):
+                                        popup += f'<br><a href="{links["google_maps"]}" target="_blank">Google Maps</a>'
                                     folium.Marker(
                                         [row["Lat"], row["Lon"]],
-                                        popup=popup,
-                                        tooltip=str(row.get("Site", "Site")),
+                                        popup=folium.Popup(popup, max_width=250),
+                                        tooltip=f"{num}. {name}",
                                         icon=folium.Icon(color="red" if is_selected else ("orange" if row.get("Score", 0) >= 80 else "blue"))
                                     ).add_to(m)
                             st_folium(m, width=700, height=450, key=f"map_{sid}")
