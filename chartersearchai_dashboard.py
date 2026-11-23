@@ -434,9 +434,44 @@ elif page == "Past Searches & Shortlists":
                             )
                             if st.button("🔍 Get ownership details for selected sites", key=f"ownbtn_{sid}"):
                                 if selected_for_ownership:
-                                    st.info(f"Requesting ownership details for {len(selected_for_ownership)} site(s)…")
-                                    # Placeholder – will call the agent once the endpoint supports it
-                                    st.success("Ownership request sent. Results will appear here when the agent responds.")
+                                    with st.spinner(f"Requesting ownership details for {len(selected_for_ownership)} site(s)…"):
+                                        try:
+                                            api_url = st.secrets.get("AGENT_API_URL", "")
+                                            api_key = st.secrets.get("AGENT_API_KEY", "")
+                                            if not api_url or not api_key:
+                                                st.error("API not configured.")
+                                            else:
+                                                # Build payload from selected sites
+                                                selected_rows = []
+                                                for label in selected_for_ownership:
+                                                    try:
+                                                        num = int(label.split(".")[0])
+                                                        row = df[df["No."] == num].iloc[0]
+                                                        selected_rows.append({
+                                                            "site_id": str(row.get("site_id", row.get("Site ID", ""))),
+                                                            "lat": float(row.get("Lat", 0)),
+                                                            "lon": float(row.get("Lon", 0)),
+                                                            "name": str(row.get("Site", ""))
+                                                        })
+                                                    except:
+                                                        continue
+                                                if selected_rows:
+                                                    headers = {
+                                                        "Content-Type": "application/json",
+                                                        "X-API-Key": api_key,
+                                                        "ngrok-skip-browser-warning": "true"
+                                                    }
+                                                    resp = requests.post(f"{api_url.rstrip('/')}/ownership", json={"sites": selected_rows}, headers=headers, timeout=120)
+                                                    if resp.status_code == 200:
+                                                        ownership_data = resp.json()
+                                                        st.success("Ownership details received.")
+                                                        st.json(ownership_data)
+                                                    else:
+                                                        st.error(f"Ownership request failed: {resp.status_code} – {resp.text[:300]}")
+                                                else:
+                                                    st.warning("Could not extract site data.")
+                                        except Exception as e:
+                                            st.error(f"Request failed: {e}")
                                 else:
                                     st.warning("Please select at least one site.")
                 else:
