@@ -443,16 +443,19 @@ elif page == "Past Searches & Shortlists":
                                             else:
                                                 # Build payload from selected sites
                                                 selected_rows = []
+                                                site_number_map = {}
                                                 for label in selected_for_ownership:
                                                     try:
                                                         num = int(label.split(".")[0])
                                                         row = df[df["No."] == num].iloc[0]
+                                                        site_id = str(row.get("site_id", row.get("Site ID", "")))
                                                         selected_rows.append({
-                                                            "site_id": str(row.get("site_id", row.get("Site ID", ""))),
+                                                            "site_id": site_id,
                                                             "lat": float(row.get("Lat", 0)),
                                                             "lon": float(row.get("Lon", 0)),
                                                             "name": str(row.get("Site", ""))
                                                         })
+                                                        site_number_map[site_id] = num
                                                     except:
                                                         continue
                                                 if selected_rows:
