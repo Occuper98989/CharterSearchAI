@@ -7,6 +7,10 @@ import folium
 from streamlit_folium import st_folium
 from io import BytesIO
 
+# Use a local data folder that works on Streamlit Cloud
+DATA_DIR = "data"
+os.makedirs(DATA_DIR, exist_ok=True)
+
 # Page config - CharterSearchAI branding
 st.set_page_config(
     page_title="CharterSearchAI | Charterhouse Property Group",
@@ -64,14 +68,29 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# Header branding
-st.markdown("# CharterSearchAI")
-st.caption("Land sourcing intelligence for Charterhouse Property Group · Investing & developing in UK real estate for over 30 years")
+# Header branding - closer to mockup
+col1, col2, col3 = st.columns([1.2, 3, 1.5])
+with col1:
+    st.markdown("""
+    <div style="display:flex; align-items:center; gap:10px;">
+        <div style="font-size:28px;">🏗️</div>
+        <div>
+            <div style="font-family:Montserrat,sans-serif; font-weight:600; color:#C9A578; font-size:14px;">CHARTERHOUSE</div>
+            <div style="font-size:10px; color:#888;">PROPERTY GROUP</div>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+with col2:
+    st.markdown("# CharterSearchAI")
+    st.caption("Land sourcing intelligence for Charterhouse Property Group")
+with col3:
+    st.markdown("<div style='text-align:right; padding-top:15px; font-size:13px; color:#888;'>Charterhouse Property Group</div>", unsafe_allow_html=True)
+
 st.markdown("---")
 
-# Persistent storage
-SEARCHES_FILE = "/workspace/artifacts/searches.json"
-RESULTS_FILE = "/workspace/artifacts/results.json"
+# Persistent storage (works on Streamlit Cloud)
+SEARCHES_FILE = os.path.join(DATA_DIR, "searches.json")
+RESULTS_FILE = os.path.join(DATA_DIR, "results.json")
 
 def load_json(path, default):
     if os.path.exists(path):
@@ -86,13 +105,19 @@ def save_json(path, data):
 searches = load_json(SEARCHES_FILE, {})
 results = load_json(RESULTS_FILE, {})
 
-# Sidebar
+# Sidebar - improved
 with st.sidebar:
-    st.markdown("### CharterSearchAI")
+    st.markdown("""
+    <div style="text-align:center; padding:10px 0 20px 0;">
+        <div style="font-size:32px;">🏗️</div>
+        <div style="font-family:Montserrat,sans-serif; font-weight:600; color:#C9A578; font-size:16px;">CHARTERHOUSE</div>
+        <div style="font-size:11px; color:#aaa;">PROPERTY GROUP</div>
+    </div>
+    """, unsafe_allow_html=True)
     st.markdown("---")
     page = st.radio("Navigate", ["New Search", "Past Searches & Shortlists", "How it works"])
     st.markdown("---")
-    st.caption("Charterhouse Property Group")
+    st.caption("Investing in UK real estate for over 30 years")
 
 if page == "New Search":
     st.header("New Search Requirements")
@@ -148,8 +173,8 @@ Extra notes: {extra_notes}
 
 Run a full scan for overlooked commercial development sites matching these exact criteria. Include satellite hardstanding analysis notes, map coordinates where possible, and return a scored shortlist in structured JSON/CSV ready for the dashboard (fields: Site, Approx acres, Traffic nearby, Score, Notes, Lat, Lon, Hardstanding confidence)."""
         
-        # In this environment the agent is triggered via the system; the prompt is saved for the bot
-        with open(f"/workspace/artifacts/prompt_{search_id}.txt", "w") as f:
+        # Save prompt locally
+        with open(os.path.join(DATA_DIR, f"prompt_{search_id}.txt"), "w") as f:
             f.write(bot_prompt)
         
         st.success(f"**{search_name}** started. Agent triggered with exact form values.")
