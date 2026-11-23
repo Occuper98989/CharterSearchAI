@@ -318,72 +318,65 @@ elif page == "Past Searches & Shortlists":
                         }
                         df = df.rename(columns={c: col_map.get(str(c).lower(), c) for c in df.columns})
                         
-                        # Overlooked filter
-                        show_overlooked = st.checkbox("Show only overlooked sites (high score, low build, hardstanding priority)", value=True, key=f"overlook_{sid}")
+                        # Overlooked filter + explanation
+                        st.markdown("""
+                        **What you’re seeing**
+                        - **Register sites** come from the official brownfield register (the usual sources).
+                        - **Map-only sites** are hardstanding areas found on OpenStreetMap near busy roads that are *not* on the brownfield register. These are the “overlooked” opportunities other tools often miss, but many will be ordinary car parks or verges — always check the satellite view.
+                        """)
+                        
+                        show_map_only = st.checkbox("Include map-only (overlooked) sites", value=True, key=f"maponly_{sid}")
+                        if not show_map_only and "source" in df.columns:
+                            df = df[~df["source"].astype(str).str.contains("map", case=False, na=False)]
+                        
+                        show_overlooked = st.checkbox("Show only high-scoring sites (≥70)", value=False, key=f"overlook_{sid}")
                         if show_overlooked and "Score" in df.columns:
                             df = df[df["Score"] >= 70]
                         
                         st.subheader(f"Candidate sites ({len(df)})")
                         
-                        # Add flags safely
-                        flags = []
-                        for _, row in df.iterrows():
-                            f = []
-                            if "Ownership" in df.columns and "public" in str(row.get("Ownership", "")).lower():
-                                f.append("Public ownership")
-                            if "VOA" in df.columns and "no" in str(row.get("VOA", "")).lower():
-                                f.append("No VOA")
-                            flags.append(" | ".join(f) if f else "")
-                        df["Flags"] = flags
+                        # Site selector to highlight on map
+                        site_list = df["Site"].dropna().astype(str).tolist() if "Site" in df.columns else []
+                        selected_site = st.selectbox("Select a site to highlight on the map", [""] + site_list, key=f"sel_{sid}")
                         
-                        # Make sure key identification columns are present
-                        if "address" in df.columns and "Site" not in df.columns:
-                            df["Site"] = df["address"]
-                        if "site_id" in df.columns:
-                            df["Site ID"] = df["site_id"]
-                        
-                        display_cols = [c for c in ["Site", "Site ID", "Approx acres", "Traffic nearby", "Score", "Hardstanding confidence", "Flags", "Notes"] if c in df.columns]
-                        # Final safety: drop any remaining duplicates
+                        display_cols = [c for c in ["Site", "Site ID", "Approx acres", "Traffic nearby", "Score", "Hardstanding confidence", "Flags"] if c in df.columns]
                         df = df.loc[:, ~df.columns.duplicated()]
                         st.dataframe(df[display_cols] if display_cols else df, use_container_width=True, hide_index=True)
                         
-                        # Map view with selection
+                        # Map view
                         st.subheader("Map view")
                         if "Lat" in df.columns and "Lon" in df.columns and len(df) > 0:
                             m = folium.Map(location=[51.5, -0.1], zoom_start=9)
-                            for idx, row in df.iterrows():
+                            for _, row in df.iterrows():
                                 if pd.notna(row.get("Lat")) and pd.notna(row.get("Lon")):
-                                    popup = f"{row.get('Site', 'Site')}<br>Score: {row.get('Score', '')}<br>{row.get('Hardstanding confidence', '')}"
+                                    is_selected = selected_site and selected_site == str(row.get("Site", ""))
+                                    popup = f"{row.get('Site', 'Site')}<br>Score: {row.get('Score', '')}"
                                     folium.Marker(
                                         [row["Lat"], row["Lon"]],
                                         popup=popup,
                                         tooltip=str(row.get("Site", "Site")),
-                                        icon=folium.Icon(color="red" if row.get("Score", 0) >= 80 else "blue")
+                                        icon=folium.Icon(color="red" if is_selected else ("orange" if row.get("Score", 0) >= 80 else "blue"))
                                     ).add_to(m)
-                            map_data = st_folium(m, width=700, height=450, key=f"map_{sid}")
-                            if map_data and map_data.get("last_object_clicked"):
-                                st.info(f"Selected on map: {map_data['last_object_clicked']}")
+                            st_folium(m, width=700, height=450, key=f"map_{sid}")
                         else:
                             st.info("No coordinates available for map.")
                         
-                        # Source links - always show
-                        st.subheader("Identify the site")
-                        for _, row in df.head(15).iterrows():
+                        # Links for ALL sites
+                        st.subheader("Identify the site (all results)")
+                        for _, row in df.iterrows():
                             site_name = row.get("Site") or row.get("address") or "Site"
                             site_id = row.get("Site ID") or row.get("site_id") or ""
                             links = row.get("source_links", {})
                             if isinstance(links, dict):
                                 gmaps = links.get("google_maps", "")
                                 planning = links.get("planning_data", "")
-                                link_text = []
+                                link_parts = []
                                 if gmaps:
-                                    link_text.append(f"[Google Maps]({gmaps})")
+                                    link_parts.append(f"[Google Maps]({gmaps})")
                                 if planning:
-                                    link_text.append(f"[Planning Data]({planning})")
-                                if link_text:
-                                    st.markdown(f"**{site_name}** {f'({site_id})' if site_id else ''} — {' | '.join(link_text)}")
-                                else:
-                                    st.markdown(f"**{site_name}** {f'({site_id})' if site_id else ''}")
+                                    link_parts.append(f"[Planning Data]({planning})")
+                                links_str = " | ".join(link_parts) if link_parts else "No direct link"
+                                st.markdown(f"**{site_name}** {f'({site_id})' if site_id else ''} — {links_str}")
                             else:
                                 st.markdown(f"**{site_name}** {f'({site_id})' if site_id else ''}")
                         
