@@ -403,7 +403,8 @@ elif page == "Past Searches & Shortlists":
                                 label="📥 Download Excel shortlist",
                                 data=output.getvalue(),
                                 file_name=f"CharterSearchAI_{crit['name'].replace(' ','_')}.xlsx",
-                                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                                key=f"excel_{sid}"
                             )
                         
                         # Shortlist
