@@ -334,7 +334,12 @@ elif page == "Past Searches & Shortlists":
                         st.subheader(f"Candidate sites ({len(df)})")
                         
                         # Site selector to highlight on map
-                        site_list = df["Site"].dropna().astype(str).tolist() if "Site" in df.columns else []
+                        site_list = []
+                        if "Site" in df.columns:
+                            try:
+                                site_list = df["Site"].dropna().astype(str).unique().tolist()
+                            except:
+                                site_list = []
                         selected_site = st.selectbox("Select a site to highlight on the map", [""] + site_list, key=f"sel_{sid}")
                         
                         display_cols = [c for c in ["Site", "Site ID", "Approx acres", "Traffic nearby", "Score", "Hardstanding confidence", "Flags"] if c in df.columns]
