@@ -257,46 +257,44 @@ elif page == "Past Searches & Shortlists":
                     st.rerun()
             
             with st.expander(expander_label):
+                # Always show retry button
+                if st.button("🔄 Retry search (reconnect AI)", key=f"retry_{sid}"):
+                    with st.spinner("Reconnecting to the Land Sourcing Agent..."):
+                        try:
+                            api_url = st.secrets.get("AGENT_API_URL", "")
+                            api_key = st.secrets.get("AGENT_API_KEY", "")
+                            if api_url and api_key:
+                                payload = {
+                                    "search_name": crit.get("name", "Retry"),
+                                    "min_acres": crit.get("min_acres", 0.3),
+                                    "max_acres": crit.get("max_acres", 7.5),
+                                    "min_aadf": crit.get("min_traffic", 8000),
+                                    "max_build_pct": crit.get("max_build_pct", 15),
+                                    "location_focus": [crit.get("location_focus", "")],
+                                    "priorities": crit.get("priorities", [])
+                                }
+                                headers = {
+                                    "Content-Type": "application/json",
+                                    "X-API-Key": api_key,
+                                    "ngrok-skip-browser-warning": "true"
+                                }
+                                resp = requests.post(f"{api_url.rstrip('/')}/search", json=payload, headers=headers, timeout=180)
+                                if resp.status_code == 200:
+                                    agent_result = resp.json()
+                                    sites = agent_result.get("sites") or agent_result.get("results") or []
+                                    results[sid] = {"criteria": crit, "sites": sites, "generated": datetime.now().isoformat(), "source": "agent-retry"}
+                                    save_json(RESULTS_FILE, results)
+                                    st.success(f"Reconnected — {len(sites)} sites returned.")
+                                    st.rerun()
+                                else:
+                                    st.error(f"Retry failed: {resp.status_code}")
+                            else:
+                                st.error("API not configured.")
+                        except Exception as e:
+                            st.error(f"Retry failed: {e}")
+                
                 if sid in results:
                     sites = results[sid].get("sites", [])
-                    
-                    # Retry / Reconnect button
-                    if st.button("🔄 Retry search (reconnect AI)", key=f"retry_{sid}"):
-                        with st.spinner("Reconnecting to the Land Sourcing Agent..."):
-                            try:
-                                api_url = st.secrets.get("AGENT_API_URL", "")
-                                api_key = st.secrets.get("AGENT_API_KEY", "")
-                                if api_url and api_key and sid in searches:
-                                    crit = searches[sid]
-                                    payload = {
-                                        "search_name": crit.get("name", "Retry"),
-                                        "min_acres": crit.get("min_acres", 0.3),
-                                        "max_acres": crit.get("max_acres", 7.5),
-                                        "min_aadf": crit.get("min_traffic", 8000),
-                                        "max_build_pct": crit.get("max_build_pct", 15),
-                                        "location_focus": [crit.get("location_focus", "")],
-                                        "priorities": crit.get("priorities", [])
-                                    }
-                                    headers = {
-                                        "Content-Type": "application/json",
-                                        "X-API-Key": api_key,
-                                        "ngrok-skip-browser-warning": "true"
-                                    }
-                                    resp = requests.post(f"{api_url.rstrip('/')}/search", json=payload, headers=headers, timeout=180)
-                                    if resp.status_code == 200:
-                                        agent_result = resp.json()
-                                        sites = agent_result.get("sites") or agent_result.get("results") or []
-                                        results[sid] = {"criteria": crit, "sites": sites, "generated": datetime.now().isoformat(), "source": "agent-retry"}
-                                        save_json(RESULTS_FILE, results)
-                                        st.success(f"Reconnected — {len(sites)} sites returned.")
-                                        st.rerun()
-                                    else:
-                                        st.error(f"Retry failed: {resp.status_code}")
-                                else:
-                                    st.error("API not configured.")
-                            except Exception as e:
-                                st.error(f"Retry failed: {e}")
-                    
                     if not sites:
                         st.warning("No sites returned for this search.")
                     else:
