@@ -207,7 +207,8 @@ Run a full scan for overlooked commercial development sites matching these exact
                     resp = requests.post(f"{api_url.rstrip('/')}/search", json=payload, headers=headers, timeout=180)
                     if resp.status_code == 200:
                         agent_result = resp.json()
-                        sites = agent_result.get("sites", [])
+                        # Accept either "sites" or "results"
+                        sites = agent_result.get("sites") or agent_result.get("results") or []
                         results[search_id] = {"criteria": criteria, "sites": sites, "generated": datetime.now().isoformat(), "source": "agent"}
                         save_json(RESULTS_FILE, results)
                         st.success(f"Real results received ({len(sites)} sites).")
