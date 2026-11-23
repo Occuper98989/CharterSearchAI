@@ -6,6 +6,7 @@ import os
 import folium
 from streamlit_folium import st_folium
 from io import BytesIO
+import requests
 
 # Use a local data folder that works on Streamlit Cloud
 DATA_DIR = "data"
@@ -177,18 +178,56 @@ Run a full scan for overlooked commercial development sites matching these exact
         with open(os.path.join(DATA_DIR, f"prompt_{search_id}.txt"), "w") as f:
             f.write(bot_prompt)
         
-        st.success(f"**{search_name}** started.")
-        st.info("👉 **Go to Past Searches & Shortlists** (left sidebar) to view results, map, hardstanding notes, and download the Excel shortlist.")
-        st.balloons()
+        st.success(f"**{search_name}** submitted.")
         
-        # Demo results with coordinates for map
-        demo_sites = [
-            {"Site": "Hardstanding yard near M25 J15", "Approx acres": 2.1, "Traffic nearby": "12,400 AADF", "Score": 92, "Notes": "Redundant lorry park style. Satellite: clear hardstanding, low build coverage. Verify VOA.", "Lat": 51.48, "Lon": -0.45, "Hardstanding confidence": "High"},
-            {"Site": "Brownfield parcel Essex industrial fringe", "Approx acres": 1.4, "Traffic nearby": "9,100 AADF", "Score": 85, "Notes": "Planning history of non-use. Satellite: likely hardstanding yards.", "Lat": 51.55, "Lon": 0.35, "Hardstanding confidence": "Medium"},
-            {"Site": "Vacant car park Kent A2 corridor", "Approx acres": 0.8, "Traffic nearby": "15,200 AADF", "Score": 88, "Notes": "High traffic. Satellite: open hardstanding, possible contamination.", "Lat": 51.42, "Lon": 0.55, "Hardstanding confidence": "High"}
-        ]
-        results[search_id] = {"criteria": criteria, "sites": demo_sites, "generated": datetime.now().isoformat()}
-        save_json(RESULTS_FILE, results)
+        # Build payload for the agent API
+        payload = {
+            "search_name": search_name,
+            "min_acres": min_acres,
+            "max_acres": max_acres,
+            "min_aadf": min_traffic,
+            "max_build_pct": max_build_pct,
+            "location_focus": [location_focus],
+            "priorities": priorities
+        }
+        
+        # API settings from Streamlit secrets
+        api_url = st.secrets.get("AGENT_API_URL", "")
+        api_key = st.secrets.get("AGENT_API_KEY", "")
+        
+        if api_url and api_key:
+            with st.spinner("Running real search with the Land Sourcing Agent..."):
+                try:
+                    headers = {"Content-Type": "application/json", "X-API-Key": api_key}
+                    resp = requests.post(f"{api_url.rstrip('/')}/search", json=payload, headers=headers, timeout=180)
+                    if resp.status_code == 200:
+                        agent_result = resp.json()
+                        sites = agent_result.get("sites", [])
+                        results[search_id] = {"criteria": criteria, "sites": sites, "generated": datetime.now().isoformat(), "source": "agent"}
+                        save_json(RESULTS_FILE, results)
+                        st.success("Real results received from the agent.")
+                    else:
+                        st.error(f"Agent error {resp.status_code}. Showing demo results.")
+                        raise Exception("fallback")
+                except Exception:
+                    demo_sites = [
+                        {"Site": "Hardstanding yard near M25 J15", "Approx acres": 2.1, "Traffic nearby": "12,400 AADF", "Score": 92, "Notes": "Demo – agent unavailable", "Lat": 51.48, "Lon": -0.45, "Hardstanding confidence": "High"},
+                        {"Site": "Brownfield parcel Essex industrial fringe", "Approx acres": 1.4, "Traffic nearby": "9,100 AADF", "Score": 85, "Notes": "Demo", "Lat": 51.55, "Lon": 0.35, "Hardstanding confidence": "Medium"}
+                    ]
+                    results[search_id] = {"criteria": criteria, "sites": demo_sites, "generated": datetime.now().isoformat(), "source": "demo"}
+                    save_json(RESULTS_FILE, results)
+        else:
+            st.warning("Agent API not configured in secrets yet. Showing demo results.")
+            demo_sites = [
+                {"Site": "Hardstanding yard near M25 J15", "Approx acres": 2.1, "Traffic nearby": "12,400 AADF", "Score": 92, "Notes": "Demo result – agent not connected", "Lat": 51.48, "Lon": -0.45, "Hardstanding confidence": "High"},
+                {"Site": "Brownfield parcel Essex industrial fringe", "Approx acres": 1.4, "Traffic nearby": "9,100 AADF", "Score": 85, "Notes": "Demo result", "Lat": 51.55, "Lon": 0.35, "Hardstanding confidence": "Medium"},
+                {"Site": "Vacant car park Kent A2 corridor", "Approx acres": 0.8, "Traffic nearby": "15,200 AADF", "Score": 88, "Notes": "Demo result", "Lat": 51.42, "Lon": 0.55, "Hardstanding confidence": "High"}
+            ]
+            results[search_id] = {"criteria": criteria, "sites": demo_sites, "generated": datetime.now().isoformat(), "source": "demo"}
+            save_json(RESULTS_FILE, results)
+        
+        st.info("👉 Go to **Past Searches & Shortlists** to view results, map, and Excel export.")
+        st.balloons()
         st.rerun()
 
 elif page == "Past Searches & Shortlists":
