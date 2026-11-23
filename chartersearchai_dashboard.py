@@ -207,9 +207,10 @@ Run a full scan for overlooked commercial development sites matching these exact
                         save_json(RESULTS_FILE, results)
                         st.success("Real results received from the agent.")
                     else:
-                        st.error(f"Agent error {resp.status_code}. Showing demo results.")
+                        st.error(f"Agent error {resp.status_code}: {resp.text[:300]}")
                         raise Exception("fallback")
-                except Exception:
+                except Exception as e:
+                    st.error(f"Request failed: {e}")
                     demo_sites = [
                         {"Site": "Hardstanding yard near M25 J15", "Approx acres": 2.1, "Traffic nearby": "12,400 AADF", "Score": 92, "Notes": "Demo – agent unavailable", "Lat": 51.48, "Lon": -0.45, "Hardstanding confidence": "High"},
                         {"Site": "Brownfield parcel Essex industrial fringe", "Approx acres": 1.4, "Traffic nearby": "9,100 AADF", "Score": 85, "Notes": "Demo", "Lat": 51.55, "Lon": 0.35, "Hardstanding confidence": "Medium"}
