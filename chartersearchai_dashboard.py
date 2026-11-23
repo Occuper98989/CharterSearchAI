@@ -334,7 +334,12 @@ elif page == "Past Searches & Shortlists":
                             df = df[~mask]
                         
                         if exclude_cemeteries and "Site" in df.columns:
-                            df = df[~df["Site"].astype(str).str.lower().str.contains("cemeter|graveyard|burial", na=False)]
+                            try:
+                                df = df[~df["Site"].astype(str).str.lower().str.contains("cemeter", na=False)]
+                                df = df[~df["Site"].astype(str).str.lower().str.contains("graveyard", na=False)]
+                                df = df[~df["Site"].astype(str).str.lower().str.contains("burial", na=False)]
+                            except:
+                                pass
                         
                         if exclude_council and "Ownership" in df.columns:
                             df = df[~df["Ownership"].astype(str).str.lower().str.contains("public|council|local authority", na=False)]
