@@ -224,12 +224,7 @@ Run a full scan for overlooked commercial development sites matching these exact
                         st.stop()  # Keep the error visible
                 except Exception as e:
                     st.error(f"Request failed: {type(e).__name__}: {str(e)}")
-                    st.stop()  # Keep the error visible
-                        {"Site": "Hardstanding yard near M25 J15", "Approx acres": 2.1, "Traffic nearby": "12,400 AADF", "Score": 92, "Notes": "Demo – agent unavailable", "Lat": 51.48, "Lon": -0.45, "Hardstanding confidence": "High"},
-                        {"Site": "Brownfield parcel Essex industrial fringe", "Approx acres": 1.4, "Traffic nearby": "9,100 AADF", "Score": 85, "Notes": "Demo", "Lat": 51.55, "Lon": 0.35, "Hardstanding confidence": "Medium"}
-                    ]
-                    results[search_id] = {"criteria": criteria, "sites": demo_sites, "generated": datetime.now().isoformat(), "source": "demo"}
-                    save_json(RESULTS_FILE, results)
+                    st.stop()
         else:
             st.warning("Agent API not configured in secrets yet. Showing demo results.")
             demo_sites = [
