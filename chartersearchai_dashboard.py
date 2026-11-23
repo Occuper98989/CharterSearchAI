@@ -324,12 +324,20 @@ elif page == "Past Searches & Shortlists":
                         """)
                         
                         show_map_only = st.checkbox("Include map-only (overlooked) sites", value=True, key=f"maponly_{sid}")
+                        exclude_cemeteries = st.checkbox("Exclude cemeteries / graveyards", value=True, key=f"nocem_{sid}")
+                        exclude_council = st.checkbox("Exclude known council / public ownership", value=False, key=f"nocouncil_{sid}")
+                        
                         if not show_map_only and "Site" in df.columns:
-                            # Hide generic map-only sites
                             mask = df["Site"].astype(str).str.lower().str.contains("surface car park", na=False) | \
                                    df["Site"].astype(str).str.lower().str.contains("brownfield land", na=False) | \
                                    df["Site"].astype(str).str.lower().str.contains("osm", na=False)
                             df = df[~mask]
+                        
+                        if exclude_cemeteries and "Site" in df.columns:
+                            df = df[~df["Site"].astype(str).str.lower().str.contains("cemeter|graveyard|burial", na=False)]
+                        
+                        if exclude_council and "Ownership" in df.columns:
+                            df = df[~df["Ownership"].astype(str).str.lower().str.contains("public|council|local authority", na=False)]
                         
                         show_overlooked = st.checkbox("Show only high-scoring sites (≥70)", value=True, key=f"overlook_{sid}")
                         if show_overlooked and "Score" in df.columns:
