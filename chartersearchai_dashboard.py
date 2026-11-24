@@ -218,26 +218,24 @@ Run a full scan for overlooked commercial development sites matching these exact
                     resp = requests.post(f"{api_url.rstrip('/')}/search", json=payload, headers=headers, timeout=180)
                     if resp.status_code in (200, 202):
                         agent_result = resp.json()
-                        # Handle long-running searches (202 or run_id present)
-                        if resp.status_code == 202 or ("run_id" in agent_result and not agent_result.get("sites")):
-                            run_id = agent_result.get("run_id")
-                            if run_id:
-                                st.info(f"Search started (run {run_id}). Waiting for results…")
-                                for _ in range(90):  # up to ~3 minutes
-                                    time.sleep(2)
-                                    try:
-                                        poll = requests.get(f"{api_url.rstrip('/')}/runs/{run_id}", headers=headers, timeout=30)
-                                        if poll.status_code == 200:
-                                            poll_data = poll.json()
-                                            if poll_data.get("sites") or poll_data.get("results") or poll_data.get("status") == "complete":
-                                                agent_result = poll_data
-                                                break
-                                    except:
-                                        continue
-                        sites = agent_result.get("sites") or agent_result.get("results") or []
-                        results[search_id] = {"criteria": criteria, "sites": sites, "generated": datetime.now().isoformat(), "source": "agent"}
-                        save_json(RESULTS_FILE, results)
-                        st.success(f"Real results received ({len(sites)} sites).")
+                        run_id = agent_result.get("run_id")
+                        if resp.status_code == 202 or (run_id and not agent_result.get("sites")):
+                            # Store as pending and let Past Searches page poll
+                            results[search_id] = {
+                                "criteria": criteria,
+                                "sites": [],
+                                "status": "pending",
+                                "run_id": run_id,
+                                "generated": datetime.now().isoformat(),
+                                "source": "agent"
+                            }
+                            save_json(RESULTS_FILE, results)
+                            st.success("Search started. Go to Past Searches to see results (it will update automatically).")
+                        else:
+                            sites = agent_result.get("sites") or agent_result.get("results") or []
+                            results[search_id] = {"criteria": criteria, "sites": sites, "generated": datetime.now().isoformat(), "source": "agent"}
+                            save_json(RESULTS_FILE, results)
+                            st.success(f"Real results received ({len(sites)} sites).")
                     else:
                         st.error(f"Agent error {resp.status_code}: {resp.text[:500]}")
                         st.stop()  # Keep the error visible
@@ -276,6 +274,40 @@ elif page == "Past Searches & Shortlists":
                     st.rerun()
             
             with st.expander(expander_label):
+                # Poll for pending results
+                res = results.get(sid, {})
+                if res.get("status") == "pending" and res.get("run_id"):
+                    api_url = st.secrets.get("AGENT_API_URL", "")
+                    api_key = st.secrets.get("AGENT_API_KEY", "")
+                    if api_url and api_key:
+                        headers = {
+                            "Content-Type": "application/json",
+                            "X-API-Key": api_key,
+                            "ngrok-skip-browser-warning": "true"
+                        }
+                        with st.spinner("Waiting for results…"):
+                            try:
+                                poll = requests.get(f"{api_url.rstrip('/')}/runs/{res['run_id']}", headers=headers, timeout=30)
+                                if poll.status_code == 200:
+                                    poll_data = poll.json()
+                                    sites = poll_data.get("sites") or poll_data.get("results") or []
+                                    if sites or poll_data.get("status") == "complete":
+                                        results[sid] = {
+                                            "criteria": crit,
+                                            "sites": sites,
+                                            "generated": datetime.now().isoformat(),
+                                            "source": "agent"
+                                        }
+                                        save_json(RESULTS_FILE, results)
+                                        st.success(f"Results ready ({len(sites)} sites).")
+                                        st.rerun()
+                                    else:
+                                        st.info("Still running… refresh the page in a minute.")
+                            except Exception as e:
+                                st.warning(f"Could not check status: {e}")
+                    else:
+                        st.warning("API not configured.")
+                
                 # Always show retry button
                 if st.button("🔄 Retry search (reconnect AI)", key=f"retry_{sid}"):
                     with st.spinner("Reconnecting to the Land Sourcing Agent..."):
