@@ -216,23 +216,24 @@ Run a full scan for overlooked commercial development sites matching these exact
                         "ngrok-skip-browser-warning": "true"
                     }
                     resp = requests.post(f"{api_url.rstrip('/')}/search", json=payload, headers=headers, timeout=180)
-                    if resp.status_code == 200:
+                    if resp.status_code in (200, 202):
                         agent_result = resp.json()
-                        # Handle long-running searches
-                        if "run_id" in agent_result and not agent_result.get("sites"):
-                            run_id = agent_result["run_id"]
-                            st.info(f"Search started (run {run_id}). Waiting for results…")
-                            for _ in range(60):  # up to ~2 minutes
-                                time.sleep(2)
-                                poll = requests.get(f"{api_url.rstrip('/')}/runs/{run_id}", headers=headers, timeout=30)
-                                if poll.status_code == 200:
-                                    poll_data = poll.json()
-                                    if poll_data.get("sites") or poll_data.get("results"):
-                                        agent_result = poll_data
-                                        break
-                                    if poll_data.get("status") == "complete":
-                                        agent_result = poll_data
-                                        break
+                        # Handle long-running searches (202 or run_id present)
+                        if resp.status_code == 202 or ("run_id" in agent_result and not agent_result.get("sites")):
+                            run_id = agent_result.get("run_id")
+                            if run_id:
+                                st.info(f"Search started (run {run_id}). Waiting for results…")
+                                for _ in range(90):  # up to ~3 minutes
+                                    time.sleep(2)
+                                    try:
+                                        poll = requests.get(f"{api_url.rstrip('/')}/runs/{run_id}", headers=headers, timeout=30)
+                                        if poll.status_code == 200:
+                                            poll_data = poll.json()
+                                            if poll_data.get("sites") or poll_data.get("results") or poll_data.get("status") == "complete":
+                                                agent_result = poll_data
+                                                break
+                                    except:
+                                        continue
                         sites = agent_result.get("sites") or agent_result.get("results") or []
                         results[search_id] = {"criteria": criteria, "sites": sites, "generated": datetime.now().isoformat(), "source": "agent"}
                         save_json(RESULTS_FILE, results)
