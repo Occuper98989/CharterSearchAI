@@ -274,42 +274,38 @@ elif page == "Past Searches & Shortlists":
                     st.rerun()
             
             with st.expander(expander_label):
-                # Poll for pending results
                 res = results.get(sid, {})
-                if res.get("status") == "pending" and res.get("run_id"):
+                
+                # Show progress / pending status more clearly
+                if res.get("status") == "pending" or (not res.get("sites") and res.get("run_id")):
+                    st.warning("Results pending…")
+                    progress_bar = st.progress(10, text="Checking status…")
                     api_url = st.secrets.get("AGENT_API_URL", "")
                     api_key = st.secrets.get("AGENT_API_KEY", "")
-                    if api_url and api_key:
+                    if api_url and api_key and res.get("run_id"):
                         headers = {
                             "Content-Type": "application/json",
                             "X-API-Key": api_key,
                             "ngrok-skip-browser-warning": "true"
                         }
-                        progress_bar = st.progress(0, text="Waiting for results…")
                         try:
-                            poll = requests.get(f"{api_url.rstrip('/')}/runs/{res['run_id']}", headers=headers, timeout=30)
+                            poll = requests.get(f"{api_url.rstrip('/')}/runs/{res['run_id']}", headers=headers, timeout=20)
                             if poll.status_code == 200:
                                 poll_data = poll.json()
-                                progress = poll_data.get("progress", 0)
+                                progress = poll_data.get("progress", 30)
                                 progress_bar.progress(min(progress, 100), text=f"Running… {progress}%")
                                 sites = poll_data.get("sites") or poll_data.get("results") or []
                                 if sites or poll_data.get("status") == "complete":
-                                    results[sid] = {
-                                        "criteria": crit,
-                                        "sites": sites,
-                                        "generated": datetime.now().isoformat(),
-                                        "source": "agent"
-                                    }
+                                    results[sid] = {"criteria": crit, "sites": sites, "generated": datetime.now().isoformat(), "source": "agent"}
                                     save_json(RESULTS_FILE, results)
                                     st.success(f"Results ready ({len(sites)} sites).")
                                     st.rerun()
-                        except Exception as e:
-                            st.warning(f"Could not check status: {e}")
+                        except:
+                            progress_bar.progress(20, text="Still checking…")
                     else:
-                        st.warning("API not configured.")
-                
-                # Email notification option for pending searches
-                if res.get("status") == "pending":
+                        progress_bar.progress(15, text="Waiting for agent…")
+                    
+                    # Email notification
                     notify_email = st.text_input("Email me when this search finishes", key=f"email_{sid}", placeholder="your@email.com")
                     if st.button("Save email", key=f"saveemail_{sid}") and notify_email:
                         results[sid]["notify_email"] = notify_email
