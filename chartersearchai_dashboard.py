@@ -285,28 +285,36 @@ elif page == "Past Searches & Shortlists":
                             "X-API-Key": api_key,
                             "ngrok-skip-browser-warning": "true"
                         }
-                        with st.spinner("Waiting for results…"):
-                            try:
-                                poll = requests.get(f"{api_url.rstrip('/')}/runs/{res['run_id']}", headers=headers, timeout=30)
-                                if poll.status_code == 200:
-                                    poll_data = poll.json()
-                                    sites = poll_data.get("sites") or poll_data.get("results") or []
-                                    if sites or poll_data.get("status") == "complete":
-                                        results[sid] = {
-                                            "criteria": crit,
-                                            "sites": sites,
-                                            "generated": datetime.now().isoformat(),
-                                            "source": "agent"
-                                        }
-                                        save_json(RESULTS_FILE, results)
-                                        st.success(f"Results ready ({len(sites)} sites).")
-                                        st.rerun()
-                                    else:
-                                        st.info("Still running… refresh the page in a minute.")
-                            except Exception as e:
-                                st.warning(f"Could not check status: {e}")
+                        progress_bar = st.progress(0, text="Waiting for results…")
+                        try:
+                            poll = requests.get(f"{api_url.rstrip('/')}/runs/{res['run_id']}", headers=headers, timeout=30)
+                            if poll.status_code == 200:
+                                poll_data = poll.json()
+                                progress = poll_data.get("progress", 0)
+                                progress_bar.progress(min(progress, 100), text=f"Running… {progress}%")
+                                sites = poll_data.get("sites") or poll_data.get("results") or []
+                                if sites or poll_data.get("status") == "complete":
+                                    results[sid] = {
+                                        "criteria": crit,
+                                        "sites": sites,
+                                        "generated": datetime.now().isoformat(),
+                                        "source": "agent"
+                                    }
+                                    save_json(RESULTS_FILE, results)
+                                    st.success(f"Results ready ({len(sites)} sites).")
+                                    st.rerun()
+                        except Exception as e:
+                            st.warning(f"Could not check status: {e}")
                     else:
                         st.warning("API not configured.")
+                
+                # Email notification option for pending searches
+                if res.get("status") == "pending":
+                    notify_email = st.text_input("Email me when this search finishes", key=f"email_{sid}", placeholder="your@email.com")
+                    if st.button("Save email", key=f"saveemail_{sid}") and notify_email:
+                        results[sid]["notify_email"] = notify_email
+                        save_json(RESULTS_FILE, results)
+                        st.success("You’ll be notified when results are ready.")
                 
                 # Always show retry button
                 if st.button("🔄 Retry search (reconnect AI)", key=f"retry_{sid}"):
