@@ -304,13 +304,6 @@ elif page == "Past Searches & Shortlists":
                             progress_bar.progress(20, text="Still checking…")
                     else:
                         progress_bar.progress(15, text="Waiting for agent…")
-                    
-                    # Email notification
-                    notify_email = st.text_input("Email me when this search finishes", key=f"email_{sid}", placeholder="your@email.com")
-                    if st.button("Save email", key=f"saveemail_{sid}") and notify_email:
-                        results[sid]["notify_email"] = notify_email
-                        save_json(RESULTS_FILE, results)
-                        st.success("You’ll be notified when results are ready.")
                 
                 # Always show retry button
                 if st.button("🔄 Retry search (reconnect AI)", key=f"retry_{sid}"):
