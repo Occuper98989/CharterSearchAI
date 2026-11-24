@@ -7,6 +7,7 @@ import folium
 from streamlit_folium import st_folium
 from io import BytesIO
 import requests
+import time
 
 # Use a local data folder that works on Streamlit Cloud
 DATA_DIR = "data"
@@ -198,6 +199,8 @@ Run a full scan for overlooked commercial development sites matching these exact
             "location_focus": [location_focus],
             "priorities": priorities
         }
+        if 'supercharge' in locals() and supercharge:
+            payload["supercharge"] = True
         
         # API settings from Streamlit secrets
         api_url = st.secrets.get("AGENT_API_URL", "")
@@ -215,6 +218,21 @@ Run a full scan for overlooked commercial development sites matching these exact
                     resp = requests.post(f"{api_url.rstrip('/')}/search", json=payload, headers=headers, timeout=180)
                     if resp.status_code == 200:
                         agent_result = resp.json()
+                        # Handle long-running searches
+                        if "run_id" in agent_result and not agent_result.get("sites"):
+                            run_id = agent_result["run_id"]
+                            st.info(f"Search started (run {run_id}). Waiting for results…")
+                            for _ in range(60):  # up to ~2 minutes
+                                time.sleep(2)
+                                poll = requests.get(f"{api_url.rstrip('/')}/runs/{run_id}", headers=headers, timeout=30)
+                                if poll.status_code == 200:
+                                    poll_data = poll.json()
+                                    if poll_data.get("sites") or poll_data.get("results"):
+                                        agent_result = poll_data
+                                        break
+                                    if poll_data.get("status") == "complete":
+                                        agent_result = poll_data
+                                        break
                         sites = agent_result.get("sites") or agent_result.get("results") or []
                         results[search_id] = {"criteria": criteria, "sites": sites, "generated": datetime.now().isoformat(), "source": "agent"}
                         save_json(RESULTS_FILE, results)
